@@ -18,5 +18,11 @@ Bullets fly, flying faster, and faster you must become too.
 - [colorama](https://pypi.org/project/colorama/)
 - [qrcode](https://pypi.org/project/qrcode/)
 
+## Install
+git clone https://github.com/Id1otic/TerminalVelocity.git
+cd TerminalVelocity
+pip install -r requirements.txt
+
 ## Run
-python main.py
+- python main.py
+- python3 main.py
