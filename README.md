@@ -19,9 +19,9 @@ Bullets fly, flying faster, and faster you must become too.
 - [qrcode](https://pypi.org/project/qrcode/)
 
 ## Install
-git clone https://github.com/Id1otic/TerminalVelocity.git
-cd TerminalVelocity
-pip install -r requirements.txt
+1. git clone https://github.com/Id1otic/TerminalVelocity.git
+2. cd TerminalVelocity
+3. pip install -r requirements.txt
 
 ## Run
 - python main.py
