@@ -11,7 +11,6 @@ import qrcode
 PROJECT_ID = "bulletdodginggame"
 API_KEY = "".join(["AIzaSyDz", "GXj5OkOMwKUM-", "aT_qx_wyrNbV", "1wyEtQ"])
 
-
 def submit_score(username, score):
     """
     Submits score to firestore.
@@ -50,7 +49,7 @@ def fetch_all_scores():
         }
     }
 
-    r = requests.patch(url, json=query)
+    r = requests.post(url, json=query)
     results = []
 
     for item in r.json():
@@ -413,4 +412,5 @@ def delayer():
 # Constant loop to reset and play again.
 while True:
     play()
+
 
