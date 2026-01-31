@@ -1,9 +1,9 @@
 # Terminal Velocity
 Bullets fly, flying faster, and faster you must become too.
-Terminal Velocity is a fast-paced terminal bullet-dodging game written in Python.
+**Terminal Velocity** is a fast-paced terminal bullet-dodging game written in Python.
 
 ## Controls
-- WASD / Arrow keys to move
+- **WASD** / **Arrow keys** to move
 
 ## Features
 - Increasing difficulty
@@ -13,10 +13,10 @@ Terminal Velocity is a fast-paced terminal bullet-dodging game written in Python
 
 ## Requirements
 - Python 3.10+
-- keyboard
-- requests
-- colorama
-- qrcode
+- [keyboard](https://pypi.org/project/keyboard/)
+- [requests](https://pypi.org/project/requests/)
+- [colorama](https://pypi.org/project/colorama/)
+- [qrcode](https://pypi.org/project/qrcode/)
 
 ## Run
 python main.py
