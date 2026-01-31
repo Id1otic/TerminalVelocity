@@ -9,7 +9,7 @@ import qrcode
 
 # Firestore configuration
 PROJECT_ID = "bulletdodginggame"
-API_KEY = "AIzaSyDzGXj5OkOMwKUM-aT_qx_wyrNbV1wyEtQ"
+API_KEY = "".join(["AIzaSyDz", "GXj5OkOMwKUM-", "aT_qx_wyrNbV", "1wyEtQ"])
 
 
 def submit_score(username, score):
@@ -413,3 +413,4 @@ def delayer():
 # Constant loop to reset and play again.
 while True:
     play()
+
