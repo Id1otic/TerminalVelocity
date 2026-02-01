@@ -11,6 +11,9 @@ Bullets fly, flying faster, and faster you must become too.
 - Terminal rendering with ANSI graphics
 - QR code support link
 
+## Notes about leaderboard
+- Security rules in place to prevent unauthorized scores.
+
 ## Requirements
 - Python 3.10+
 - [keyboard](https://pypi.org/project/keyboard/)
