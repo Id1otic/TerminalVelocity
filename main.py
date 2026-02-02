@@ -293,7 +293,7 @@ class game:
             for i in range(p['length']):
                 x = hx - dx * i
                 y = hy - dy * i
-                if self.in_bounds(x, y):
+                if 0 <= x < self.field_size[0] and 0 <= y < self.field_size[1]: # If in bounds
                     visible = True
                     self.projectile_cells.add((x, y))
                     self.field[y][x] = p['char']
@@ -302,10 +302,6 @@ class game:
                 new_projectiles.append(p)
 
         self.positions['projectiles'] = new_projectiles
-
-    def in_bounds(self, x, y):
-        """Mini helper function that checks if a coordinate is inside another (the field)."""
-        return 0 <= x < self.field_size[0] and 0 <= y < self.field_size[1]
 
     # Main logic
     def player(self):
