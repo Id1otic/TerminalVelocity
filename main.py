@@ -11,7 +11,7 @@ import qrcode
 STATE_LOCK = Lock()
 
 PROJECT_ID = "bulletdodginggame"
-API_KEY = "".join(["AIzaSyDz", "GXj5OkOMwKUM-", "aT_qx_wyrNbV", "1wyEtQ"])
+API_KEY = "AIzaSyDzGXj5OkOMwKUM-aT_qx_wyrNbV1wyEtQ"
 
 EMPTY = '·'
 COLORS = {
@@ -76,7 +76,12 @@ d88  d8P'd8b_,dP?88  d8P' ?88d8P' `P  88P  88P   d88   88
 SUPPORT_LINK = "https://buymeacoffee.com/mamaru"
 
 class game:
+    ID_TOKEN, LOCAL_ID = None, None
+
     def __init__(self):
+        if game.ID_TOKEN is None or game.LOCAL_ID is None:
+            game.ID_TOKEN, game.LOCAL_ID = self.anonymous_sign_in()
+
         self.field_size = (30, 30)
         self.field = [[EMPTY for _ in range(self.field_size[0])] for _ in range(self.field_size[1])]
         
@@ -117,6 +122,18 @@ class game:
             i.start()
         for i in self.threads:
             i.join()
+
+    def anonymous_sign_in(self):
+        url = f"https://identitytoolkit.googleapis.com/v1/accounts:signUp?key={API_KEY}"
+        resp = requests.post(url, json={"returnSecureToken": True})
+        data = resp.json()
+        
+        if "error" in data:
+            raise Exception(f"Auth failed: {data['error']}")
+        
+        id_token = data["idToken"]
+        local_id = data["localId"]
+        return id_token, local_id
     
     def submit_score(self, username, score):
         """
@@ -124,7 +141,7 @@ class game:
         """
         url = (
             f"https://firestore.googleapis.com/v1/projects/"
-            f"{PROJECT_ID}/databases/(default)/documents/leaderboard/{username}"
+            f"{PROJECT_ID}/databases/(default)/documents/leaderboard/{game.LOCAL_ID}"
             f"?key={API_KEY}"
         )
 
@@ -136,8 +153,10 @@ class game:
             }
         }
 
+        headers = {"Authorization": f"Bearer {game.ID_TOKEN}"}
+
         # PATCH creates or overwrites the document for this username
-        r = requests.patch(url, json=payload)
+        r = requests.patch(url, json=payload, headers=headers)
         return r.status_code, r.text
 
     def fetch_all_scores(self):
