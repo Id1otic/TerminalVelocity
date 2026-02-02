@@ -7,66 +7,11 @@ from colorama import init
 from getpass import getpass
 import qrcode
 
-# Firestore configuration
+# Constants
+STATE_LOCK = Lock()
+
 PROJECT_ID = "bulletdodginggame"
 API_KEY = "".join(["AIzaSyDz", "GXj5OkOMwKUM-", "aT_qx_wyrNbV", "1wyEtQ"])
-
-def submit_score(username, score):
-    """
-    Submits score to firestore.
-    """
-    url = (
-        f"https://firestore.googleapis.com/v1/projects/"
-        f"{PROJECT_ID}/databases/(default)/documents/leaderboard/{username}"
-        f"?key={API_KEY}"
-    )
-
-    payload = {
-        "fields": {
-            "username": {"stringValue": username},
-            "score": {"doubleValue": float(score)},
-            "timestamp": {"integerValue": int(time.time())}
-        }
-    }
-
-    # PATCH creates or overwrites the document for this username
-    r = requests.patch(url, json=payload)
-    return r.status_code, r.text
-
-def fetch_all_scores():
-    """
-    Fetches all firestore items.
-    """
-    url = (
-        f"https://firestore.googleapis.com/v1/projects/"
-        f"{PROJECT_ID}/databases/(default)/documents:runQuery"
-        f"?key={API_KEY}"
-    )
-
-    query = {
-        "structuredQuery": {
-            "from": [{"collectionId": "leaderboard"}]
-        }
-    }
-
-    r = requests.post(url, json=query)
-    results = []
-
-    for item in r.json():
-        if "document" in item:
-            f = item["document"]["fields"]
-            results.append({
-                "username": f["username"]["stringValue"],
-                "score": float(f["score"]["doubleValue"]),
-                "timestamp": int(f["timestamp"]["integerValue"])
-            })
-
-    return results
-
-# Variables
-leaderboard_data = sorted(fetch_all_scores(), key=lambda x: x["score"], reverse=True)[:10]
-
-field = []
 
 EMPTY = '·'
 COLORS = {
@@ -89,20 +34,13 @@ COLORS = {
 }
 COLOR_KEYS = tuple(COLORS)
 
-# Mini function
+# Make sure colors work before using colors.
 def colorify(text: str, color: str) -> str:
     """
     Wraps text in ANSI color codes.
     """
     return COLORS[color.upper()] + text + COLORS['RESET']
 
-# More variables
-prev_projectile_cells = set()
-projectile_cells = set()
-
-delay = 0.5
-time_elapsed = 0
-toggle = {i: True for i in "wasd"}
 MOVING_RULES = {
     'w': (0, -1),
     's': (0, 1),
@@ -114,14 +52,6 @@ MOVING_RULES = {
     'right': (1, 0),
 }
 PLAYER_CHAR = colorify("☺", "green")
-
-game_over = False
-
-field_size = (30, 30)
-positions = {
-    'player': (field_size[0]//2-1, field_size[1]//2-1),
-    'projectiles': []                                         
-}
 
 TITLE = colorify("""
                                         d8,                     d8b
@@ -143,9 +73,298 @@ d88  d8P'd8b_,dP?88  d8P' ?88d8P' `P  88P  88P   d88   88
                                                        ,d8P
                                                     `?888P'""", "green")
 
-support_link = "https://buymeacoffee.com/mamaru"
+SUPPORT_LINK = "https://buymeacoffee.com/mamaru"
 
-state_lock = Lock()
+class game:
+    def __init__(self):
+        self.field_size = (30, 30)
+        self.field = [[EMPTY for _ in range(self.field_size[0])] for _ in range(self.field_size[1])]
+        
+        self.positions = {
+            'player': (self.field_size[0]//2-1, self.field_size[1]//2-1),
+            'projectiles': []                                         
+        }
+        self.prev_projectile_cells = set()
+        self.projectile_cells = set()
+
+        self.game_over = False
+        self.delay = 0.5
+        self.time_elapsed = 0
+
+        self.leaderboard = sorted(
+            self.fetch_all_scores(),
+            key=lambda x: x["score"],
+            reverse=True
+        )[:10]
+
+        self.movement_toggle = {i: True for i in "wasd"}
+
+
+    def begin_threads_and_wait(self):
+        self.threads = [
+            Thread(target=self.player, name="Player"),
+            Thread(target=self.projectile, name="Projectile"),
+            Thread(target=self.delayer, name="Delayer"),
+            Thread(target=self.render_field, name="RenderField"),
+        ]
+
+        for i in self.threads:
+            i.start()
+        for i in self.threads:
+            i.join()
+    
+    def submit_score(self, username, score):
+        """
+        Submits score to firestore.
+        """
+        url = (
+            f"https://firestore.googleapis.com/v1/projects/"
+            f"{PROJECT_ID}/databases/(default)/documents/leaderboard/{username}"
+            f"?key={API_KEY}"
+        )
+
+        payload = {
+            "fields": {
+                "username": {"stringValue": username},
+                "score": {"doubleValue": float(score)},
+                "timestamp": {"integerValue": int(time.time())}
+            }
+        }
+
+        # PATCH creates or overwrites the document for this username
+        r = requests.patch(url, json=payload)
+        return r.status_code, r.text
+
+    def fetch_all_scores(self):
+        """
+        Fetches all firestore items.
+        """
+        url = (
+            f"https://firestore.googleapis.com/v1/projects/"
+            f"{PROJECT_ID}/databases/(default)/documents:runQuery"
+            f"?key={API_KEY}"
+        )
+
+        query = {
+            "structuredQuery": {
+                "from": [{"collectionId": "leaderboard"}]
+            }
+        }
+
+        r = requests.post(url, json=query)
+        results = []
+
+        for item in r.json():
+            if "document" in item:
+                f = item["document"]["fields"]
+                results.append({
+                    "username": f["username"]["stringValue"],
+                    "score": float(f["score"]["doubleValue"]),
+                    "timestamp": int(f["timestamp"]["integerValue"])
+                })
+
+        return results
+    
+    def play(self):
+        print("\033[H\033[2J", end="", flush=True)
+        
+        self.begin_threads_and_wait()
+
+        print("\033[H", end="", flush=True)
+        getpass(f"Game over! Your final time was {self.time_elapsed:.2f} seconds! " + colorify("Press enter to continue...", "green"))
+
+        while True:
+            print("\033[H\033[2J", end="", flush=True)
+            initials = input("Please input your name to enter the leaderboard (max of 16 characters): ")
+            if len(initials) > 16:
+                print("Please keep your initials inside of the range..")
+            else:
+                break
+            time.sleep(3)
+        if len(initials) != 0:
+            status, _ = self.submit_score(initials.upper(), f"{self.time_elapsed:.2f}")
+            if status == 200: # 200 = OK
+                print("Successfully submitted your score to the leaderboard!")
+            else: # Most likely 403 = Forbidden
+                print("Error submitting, try again later..")
+
+        self.render_qrcode(m, (35, 3), colorify("Enjoying the game? Support me here:", "cyan"))
+        
+        getpass(colorify("Want to play again? Press enter...", "green"))
+
+    def render_qrcode(self, matrix, location: tuple[int, int], message: str):
+        """
+        Renders a QRcode from a matrix and prints it onto a screen at a specific location.
+        This also includes a message above the code.
+        """
+        start_x, start_y = location
+        print(f"\033[{start_y};{start_x}H", end="")
+        print(message)
+        print(f"\033[{start_y + 1};{start_x}H", end="") # This is extra and I added it to make sure it is accessable from anywhere.
+        print(SUPPORT_LINK)
+
+        for row_idx in range(0, len(m), 2):
+            row = ""
+            print(f"\033[{start_y + row_idx // 2 + 2};{start_x + 2}H", end="")
+
+            for col_idx in range(len(m[row_idx])):
+                top = matrix[row_idx][col_idx]
+                bottom = matrix[row_idx + 1][col_idx] if row_idx + 1 < len(matrix) else False
+
+                row += "█" if top and bottom else "▀" if top else "▄" if bottom else " "
+
+            print(row)
+
+    def render_field(self, seperator=" "):
+        """
+        Renders the field from the field variable. This also prints data such as delay and time elapsed.
+        Also renders the leaderboard.
+        """
+        while not self.game_over:
+            with STATE_LOCK:
+                print("\033[H", end="")
+                print(f"Delay: {self.delay:.2f}, Time elapsed: {self.time_elapsed:.2f}")
+                
+                print('\n'.join(seperator.join(row) for row in self.field))
+
+                print("\033[2;65H", end="")
+                print("Leaderboard:")
+                for i in range(len(self.leaderboard)):
+                    print(f"\033[{3 + i};65H", end="")
+                    print(f"{i + 1}.", self.leaderboard[i]['username'], ":", self.leaderboard[i]['score'], "seconds")
+
+            time.sleep(1 / 30)
+
+    def spawn_projectile(self):
+        """
+        Spawns a projectile randomly. Decides which border side (top, bottom, etc.) then chooses direction.
+        """
+        edge = random.choice(['left', 'right', 'top', 'bottom'])
+
+        if edge == 'left':
+            x = -1
+            y = random.randint(0, self.field_size[1] - 1)
+            dx, dy = random.choice([(1, 0), (1, 1), (1, -1)])
+
+        elif edge == 'right':
+            x = self.field_size[0]
+            y = random.randint(0, self.field_size[1] - 1)
+            dx, dy = random.choice([(-1, 0), (-1, 1), (-1, -1)])
+
+        elif edge == 'top':
+            x = random.randint(0, self.field_size[0] - 1)
+            y = -1
+            dx, dy = random.choice([(0, 1), (1, 1), (-1, 1)])
+
+        elif edge == 'bottom':
+            x = random.randint(0, self.field_size[0] - 1)
+            y = self.field_size[1]
+            dx, dy = random.choice([(0, -1), (1, -1), (-1, -1)])
+
+        color = random.choice(COLOR_KEYS)
+        while color in ['GREEN', 'RESET', 'LIGHT_GREEN', 'BLACK', 'LIGHT_GRAY', 'DARK_GRAY']:
+            color = random.choice(COLOR_KEYS)
+        
+        self.positions['projectiles'].append({
+            'head': (x, y),
+            'dir': (dx, dy),
+            'length': 3,
+            'char': colorify("X", color)
+        })
+
+    def update_projectiles(self):
+        self.projectile_cells.clear()
+        new_projectiles = []
+
+        for p in self.positions['projectiles']:
+            hx, hy = p['head']
+            dx, dy = p['dir']
+            hx += dx
+            hy += dy
+            p['head'] = (hx, hy)
+
+            visible = False
+
+            for i in range(p['length']):
+                x = hx - dx * i
+                y = hy - dy * i
+                if self.in_bounds(x, y):
+                    visible = True
+                    self.projectile_cells.add((x, y))
+                    self.field[y][x] = p['char']
+
+            if visible:
+                new_projectiles.append(p)
+
+        self.positions['projectiles'] = new_projectiles
+
+    def in_bounds(self, x, y):
+        """Mini helper function that checks if a coordinate is inside another (the field)."""
+        return 0 <= x < self.field_size[0] and 0 <= y < self.field_size[1]
+
+    # Main logic
+    def player(self):
+        """
+        Controls player movement, updates time elapsed, and controls if the game is over or not.
+        """
+        while not self.game_over:
+            with STATE_LOCK:
+                if self.positions['player'] in self.projectile_cells:
+                    self.game_over = True
+                    break
+
+                prev_player = self.positions['player']
+
+            # input does NOT need locking
+            x, y = prev_player
+            for key, (dx, dy) in MOVING_RULES.items():
+                pressed = keyboard.is_pressed(key)
+                if pressed and self.movement_toggle[key]:
+                    x += dx
+                    y += dy
+                    self.movement_toggle[key] = False
+                elif not pressed:
+                    self.movement_toggle[key] = True
+
+            # Clamping the player to stay within the field
+            x = max(0, min(self.field_size[0] - 1, x))
+            y = max(0, min(self.field_size[1] - 1, y))
+
+            with STATE_LOCK:
+                self.positions['player'] = (x, y)
+                self.field[prev_player[1]][prev_player[0]] = EMPTY
+                self.field[y][x] = PLAYER_CHAR
+
+            time.sleep(0.01)
+            self.time_elapsed += 0.01
+
+    def projectile(self):
+        """
+        Projectile function that spawns it using the other helper functions.
+        Also modifies previous and current projectile cells which prevents ghosting.
+        """
+        while not self.game_over:
+            with STATE_LOCK:
+                self.spawn_projectile()
+
+                # erase old projectile cells
+                for x, y in self.prev_projectile_cells:
+                    if (x, y) != self.positions['player']:
+                        self.field[y][x] = EMPTY
+
+                self.update_projectiles()
+                self.prev_projectile_cells = self.projectile_cells.copy()
+
+            time.sleep(self.delay)
+
+    def delayer(self):
+        """
+        Modifies the delay/speed of projectiles and projectiles' spawn rate.
+        """
+        while not self.game_over:
+            with STATE_LOCK:
+                self.delay *= 0.995
+            time.sleep(2)
 
 # Initialize
 init() # Colorama, make sure ANSI works.
@@ -153,7 +372,7 @@ print("\033[?25l", end="", flush=True) # Hide cursor
 print("\033[?1049h", end="", flush=True)
 
 qr = qrcode.QRCode(border=1, box_size=1)
-qr.add_data(support_link)
+qr.add_data(SUPPORT_LINK)
 qr.make()
 m = qr.get_matrix()
 
@@ -161,256 +380,7 @@ print(TITLE)
 print("Please maximize your terminal")
 getpass("Press CTRL and + 5 times then enter...")
 
-# Functions
-def play():
-    """
-    Controls/calls everything. Resets/wipes/cleans variables when called. Allows for repeats.
-    """
-    global leaderboard_data, field, field_size, projectile_cells, delay, time_elapsed, game_over, positions
-    print("\033[H\033[2J", end="", flush=True)
-
-    leaderboard_data = sorted(fetch_all_scores(), key=lambda x: x["score"], reverse=True)[:10]
-
-    # Resets the field
-    field = []
-    for i in range(field_size[1]):
-            field.append([])
-            for _ in range(field_size[0]):
-                field[i].append(EMPTY)
-
-    # Variables
-    field_size = (30, 30)
-
-    projectile_cells = set()
-
-    delay = 0.5
-    time_elapsed = 0
-
-    game_over = False
-
-    positions = {
-        'player': (field_size[0]//2-1, field_size[1]//2-1),
-        'projectiles': []                                         
-    }
-
-    t1 = Thread(target=player)
-    t2 = Thread(target=projectile)
-    t3 = Thread(target=delayer)
-    t4 = Thread(target=render_field)
-
-    t1.start()
-    t2.start()
-    t3.start()
-    t4.start()
-
-    t1.join()
-    t2.join()
-    t3.join()
-    t4.join()
-
-    print("\033[H", end="", flush=True)
-    getpass(f"Game over! Your final time was {time_elapsed:.2f} seconds! " + colorify("Press enter to continue...", "green"))
-
-    while True:
-        print("\033[H\033[2J", end="", flush=True)
-        initials = input("Please input your name to enter the leaderboard (max of 16 characters): ")
-        if len(initials) > 16:
-            print("Please keep your initials inside of the range..")
-        else:
-            break
-        time.sleep(3)
-    if len(initials) != 0:
-        status, _ = submit_score(initials.upper(), f"{time_elapsed:.2f}")
-        if status == 200: # 200 = OK
-            print("Successfully submitted your score to the leaderboard!")
-        else: # Most likely 403 = Forbidden
-            print("Error submitting, try again later..")
-
-    render_qrcode(m, (35, 3), colorify("Enjoying the game? Support me here:", "cyan"))
-    
-    getpass(colorify("Want to play again? Press enter...", "green"))
-
-def render_qrcode(matrix, location: tuple[int, int], message: str):
-    """
-    Renders a QRcode from a matrix and prints it onto a screen at a specific location.
-    This also includes a message above the code.
-    """
-    start_x, start_y = location
-    print(f"\033[{start_y};{start_x}H", end="")
-    print(message)
-    print(f"\033[{start_y + 1};{start_x}H", end="") # This is extra and I added it to make sure it is accessable from anywhere.
-    print(support_link)
-
-    for row_idx in range(0, len(m), 2):
-        row = ""
-        print(f"\033[{start_y + row_idx // 2 + 2};{start_x + 2}H", end="")
-
-        for col_idx in range(len(m[row_idx])):
-            top = matrix[row_idx][col_idx]
-            bottom = matrix[row_idx + 1][col_idx] if row_idx + 1 < len(matrix) else False
-
-            row += "█" if top and bottom else "▀" if top else "▄" if bottom else " "
-
-        print(row)
-
-def render_field(seperator=" "):
-    """
-    Renders the field from the field variable. This also prints data such as delay and time elapsed.
-    Also renders the leaderboard.
-    """
-    while not game_over:
-        with state_lock:
-            print("\033[H", end="")
-            print(f"Delay: {delay:.2f}, Time elapsed: {time_elapsed:.2f}")
-            
-            print('\n'.join(seperator.join(row) for row in field))
-
-            print("\033[2;65H", end="")
-            print("Leaderboard:")
-            for i in range(len(leaderboard_data)):
-                print(f"\033[{3 + i};65H", end="")
-                print(f"{i + 1}.", leaderboard_data[i]['username'], ":", leaderboard_data[i]['score'], "seconds")
-
-        time.sleep(1 / 30)
-
-def spawn_projectile():
-    """
-    Spawns a projectile randomly. Decides which border side (top, bottom, etc.) then chooses direction.
-    """
-    edge = random.choice(['left', 'right', 'top', 'bottom'])
-
-    if edge == 'left':
-        x = -1
-        y = random.randint(0, field_size[1] - 1)
-        dx, dy = random.choice([(1, 0), (1, 1), (1, -1)])
-
-    elif edge == 'right':
-        x = field_size[0]
-        y = random.randint(0, field_size[1] - 1)
-        dx, dy = random.choice([(-1, 0), (-1, 1), (-1, -1)])
-
-    elif edge == 'top':
-        x = random.randint(0, field_size[0] - 1)
-        y = -1
-        dx, dy = random.choice([(0, 1), (1, 1), (-1, 1)])
-
-    elif edge == 'bottom':
-        x = random.randint(0, field_size[0] - 1)
-        y = field_size[1]
-        dx, dy = random.choice([(0, -1), (1, -1), (-1, -1)])
-
-    color = random.choice(COLOR_KEYS)
-    while color in ['GREEN', 'RESET', 'LIGHT_GREEN', 'BLACK', 'LIGHT_GRAY', 'DARK_GRAY']:
-        color = random.choice(COLOR_KEYS)
-    
-    positions['projectiles'].append({
-        'head': (x, y),
-        'dir': (dx, dy),
-        'length': 3,
-        'char': colorify("X", color)
-    })
-
-def update_projectiles():
-    projectile_cells.clear()
-    new_projectiles = []
-
-    for p in positions['projectiles']:
-        hx, hy = p['head']
-        dx, dy = p['dir']
-        hx += dx
-        hy += dy
-        p['head'] = (hx, hy)
-
-        visible = False
-
-        for i in range(p['length']):
-            x = hx - dx * i
-            y = hy - dy * i
-            if in_bounds(x, y):
-                visible = True
-                projectile_cells.add((x, y))
-                field[y][x] = p['char']
-
-        if visible:
-            new_projectiles.append(p)
-
-    positions['projectiles'] = new_projectiles
-
-def in_bounds(x, y):
-    """Mini helper function that checks if a coordinate is inside another (the field)."""
-    return 0 <= x < field_size[0] and 0 <= y < field_size[1]
-
-# Main logic
-def player():
-    """
-    Controls player movement, updates time elapsed, and controls if the game is over or not.
-    """
-    global time_elapsed, game_over
-
-    while not game_over:
-        with state_lock:
-            if positions['player'] in projectile_cells:
-                game_over = True
-                break
-
-            prev_player = positions['player']
-
-        # input does NOT need locking
-        x, y = prev_player
-        for key, (dx, dy) in MOVING_RULES.items():
-            pressed = keyboard.is_pressed(key)
-            if pressed and toggle[key]:
-                x += dx
-                y += dy
-                toggle[key] = False
-            elif not pressed:
-                toggle[key] = True
-
-        # Clamping the player to stay within the field
-        x = max(0, min(field_size[0] - 1, x))
-        y = max(0, min(field_size[1] - 1, y))
-
-        with state_lock:
-            positions['player'] = (x, y)
-            field[prev_player[1]][prev_player[0]] = EMPTY
-            field[y][x] = PLAYER_CHAR
-
-        time.sleep(0.01)
-        time_elapsed += 0.01
-
-def projectile():
-    """
-    Projectile function that spawns it using the other helper functions.
-    Also modifies previous and current projectile cells which prevents ghosting.
-    """
-    global prev_projectile_cells
-
-    while not game_over:
-        with state_lock:
-            spawn_projectile()
-
-            # erase old projectile cells
-            for x, y in prev_projectile_cells:
-                if (x, y) != positions['player']:
-                    field[y][x] = EMPTY
-
-            update_projectiles()
-            prev_projectile_cells = projectile_cells.copy()
-
-        time.sleep(delay)
-
-def delayer():
-    """
-    Modifies the delay/speed of projectiles and projectiles' spawn rate.
-    """
-    global delay
-    while not game_over:
-        with state_lock:
-            delay *= 0.995
-        time.sleep(2)
-
 # Constant loop to reset and play again.
 while True:
-    play()
-
-
+    g = game()
+    g.play()
