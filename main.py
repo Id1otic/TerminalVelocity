@@ -99,6 +99,11 @@ class game:
 
         self.movement_toggle = {i: True for i in "wasd"}
 
+        qr = qrcode.QRCode(border=1, box_size=1)
+        qr.add_data(SUPPORT_LINK)
+        qr.make()
+        self.m = qr.get_matrix()
+
 
     def begin_threads_and_wait(self):
         self.threads = [
@@ -188,7 +193,7 @@ class game:
             else: # Most likely 403 = Forbidden
                 print("Error submitting, try again later..")
 
-        self.render_qrcode(m, (35, 3), colorify("Enjoying the game? Support me here:", "cyan"))
+        self.render_qrcode(self.m, (35, 3), colorify("Enjoying the game? Support me here:", "cyan"))
         
         getpass(colorify("Want to play again? Press enter...", "green"))
 
@@ -203,11 +208,11 @@ class game:
         print(f"\033[{start_y + 1};{start_x}H", end="") # This is extra and I added it to make sure it is accessable from anywhere.
         print(SUPPORT_LINK)
 
-        for row_idx in range(0, len(m), 2):
+        for row_idx in range(0, len(matrix), 2):
             row = ""
             print(f"\033[{start_y + row_idx // 2 + 2};{start_x + 2}H", end="")
 
-            for col_idx in range(len(m[row_idx])):
+            for col_idx in range(len(matrix[row_idx])):
                 top = matrix[row_idx][col_idx]
                 bottom = matrix[row_idx + 1][col_idx] if row_idx + 1 < len(matrix) else False
 
@@ -370,11 +375,6 @@ class game:
 init() # Colorama, make sure ANSI works.
 print("\033[?25l", end="", flush=True) # Hide cursor
 print("\033[?1049h", end="", flush=True)
-
-qr = qrcode.QRCode(border=1, box_size=1)
-qr.add_data(SUPPORT_LINK)
-qr.make()
-m = qr.get_matrix()
 
 print(TITLE)
 print("Please maximize your terminal")
