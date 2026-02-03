@@ -1,5 +1,5 @@
 # Made by Mason Rustad
-# A bullet dodging game: Terminal Velocity.
+# A bullet dodging Game: Terminal Velocity.
 
 import time, keyboard, random, requests
 from threading import Thread, Lock
@@ -10,7 +10,7 @@ import qrcode
 # Constants
 STATE_LOCK = Lock()
 
-PROJECT_ID = "bulletdodginggame"
+PROJECT_ID = "bulletdodgingGame"
 API_KEY = "AIzaSyDzGXj5OkOMwKUM-aT_qx_wyrNbV1wyEtQ"
 
 EMPTY = '·'
@@ -75,12 +75,12 @@ d88  d8P'd8b_,dP?88  d8P' ?88d8P' `P  88P  88P   d88   88
 
 SUPPORT_LINK = "https://buymeacoffee.com/mamaru"
 
-class game:
+class Game:
     ID_TOKEN, LOCAL_ID = None, None
 
     def __init__(self):
-        if game.ID_TOKEN is None or game.LOCAL_ID is None:
-            game.ID_TOKEN, game.LOCAL_ID = self.anonymous_sign_in()
+        if Game.ID_TOKEN is None or Game.LOCAL_ID is None:
+            Game.ID_TOKEN, Game.LOCAL_ID = self.anonymous_sign_in()
 
         self.field_size = (30, 30)
         self.field = [[EMPTY for _ in range(self.field_size[0])] for _ in range(self.field_size[1])]
@@ -92,7 +92,7 @@ class game:
         self.prev_projectile_cells = set()
         self.projectile_cells = set()
 
-        self.game_over = False
+        self.Game_over = False
         self.delay = 0.5
         self.time_elapsed = 0
 
@@ -135,25 +135,25 @@ class game:
         local_id = data["localId"]
         return id_token, local_id
     
-    def submit_score(self, username, score):
+    def submit_score(self, username: str, score: float):
         """
         Submits score to firestore.
         """
         url = (
             f"https://firestore.googleapis.com/v1/projects/"
-            f"{PROJECT_ID}/databases/(default)/documents/leaderboard/{game.LOCAL_ID}"
+            f"{PROJECT_ID}/databases/(default)/documents/leaderboard/{Game.LOCAL_ID}"
             f"?key={API_KEY}"
         )
 
         payload = {
             "fields": {
                 "username": {"stringValue": username},
-                "score": {"doubleValue": float(score)},
+                "score": {"doubleValue": score},
                 "timestamp": {"integerValue": int(time.time())}
             }
         }
 
-        headers = {"Authorization": f"Bearer {game.ID_TOKEN}"}
+        headers = {"Authorization": f"Bearer {Game.ID_TOKEN}"}
 
         # PATCH creates or overwrites the document for this username
         r = requests.patch(url, json=payload, headers=headers)
@@ -216,7 +216,7 @@ class game:
         
         getpass(colorify("Want to play again? Press enter...", "green"))
 
-    def render_qrcode(self, matrix, location: tuple[int, int], message: str):
+    def render_qrcode(self, matrix: list[list[bool]], location: tuple[int, int], message: str):
         """
         Renders a QRcode from a matrix and prints it onto a screen at a specific location.
         This also includes a message above the code.
@@ -239,12 +239,12 @@ class game:
 
             print(row)
 
-    def render_field(self, seperator=" "):
+    def render_field(self, seperator: str=" "):
         """
         Renders the field from the field variable. This also prints data such as delay and time elapsed.
         Also renders the leaderboard.
         """
-        while not self.game_over:
+        while not self.Game_over:
             with STATE_LOCK:
                 print("\033[H", end="")
                 print(f"Delay: {self.delay:.2f}, Time elapsed: {self.time_elapsed:.2f}")
@@ -325,12 +325,12 @@ class game:
     # Main logic
     def player(self):
         """
-        Controls player movement, updates time elapsed, and controls if the game is over or not.
+        Controls player movement, updates time elapsed, and controls if the Game is over or not.
         """
-        while not self.game_over:
+        while not self.Game_over:
             with STATE_LOCK:
                 if self.positions['player'] in self.projectile_cells:
-                    self.game_over = True
+                    self.Game_over = True
                     break
 
                 prev_player = self.positions['player']
@@ -363,7 +363,7 @@ class game:
         Projectile function that spawns it using the other helper functions.
         Also modifies previous and current projectile cells which prevents ghosting.
         """
-        while not self.game_over:
+        while not self.Game_over:
             with STATE_LOCK:
                 self.spawn_projectile()
 
@@ -381,7 +381,7 @@ class game:
         """
         Modifies the delay/speed of projectiles and projectiles' spawn rate.
         """
-        while not self.game_over:
+        while not self.Game_over:
             with STATE_LOCK:
                 self.delay *= 0.995
             time.sleep(2)
@@ -396,6 +396,10 @@ print("Please maximize your terminal")
 getpass("Press CTRL and + 5 times then enter...")
 
 # Constant loop to reset and play again.
-while True:
-    g = game()
-    g.play()
+def main():
+    while True:
+        g = Game()
+        g.play()
+
+if __name__ == "__main__":
+    main()
