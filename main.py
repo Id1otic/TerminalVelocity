@@ -219,7 +219,7 @@ class Game:
                 break
             time.sleep(3)
         if len(initials) != 0:
-            status, _ = self.submit_score(initials.upper(), f"{self.time_elapsed:.2f}")
+            status, _ = self.submit_score(initials.upper(), float(f"{self.time_elapsed:.2f}"))
             if status == 200: # 200 = OK
                 print("Successfully submitted your score to the leaderboard!")
             else: # Most likely 403 = Forbidden
