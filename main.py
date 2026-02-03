@@ -10,7 +10,7 @@ import qrcode
 # Constants
 STATE_LOCK = Lock()
 
-PROJECT_ID = "bulletdodgingGame"
+PROJECT_ID = "bulletdodginggame"
 API_KEY = "AIzaSyDzGXj5OkOMwKUM-aT_qx_wyrNbV1wyEtQ"
 
 EMPTY = '·'
@@ -162,7 +162,7 @@ class Game:
             "fields": {
                 "username": {"stringValue": username},
                 "score": {"doubleValue": score},
-                "timestamp": {"integerValue": int(time.time())}
+                "timestamp": {"integerValue": int(time.time() * 1000)} # Convert to MS
             }
         }
 
@@ -212,14 +212,18 @@ class Game:
 
         while True:
             print("\033[H\033[2J", end="", flush=True)
+
             initials = input("Please input your name to enter the leaderboard (max of 16 characters): ")
+
             if len(initials) > 16:
                 print("Please keep your initials inside of the range..")
             else:
                 break
+
             time.sleep(3)
         if len(initials) != 0:
             status, _ = self.submit_score(initials.upper(), float(f"{self.time_elapsed:.2f}"))
+
             if status == 200: # 200 = OK
                 print("Successfully submitted your score to the leaderboard!")
             else: # Most likely 403 = Forbidden
@@ -232,7 +236,7 @@ class Game:
     def render_qrcode(self, matrix: list[list[bool]], location: tuple[int, int], message: str) -> None:
         """
         Renders a QRcode from a matrix and prints it onto a screen at a specific location.
-        This also includes a message above the code.
+        This also includes a message above the code. For dynamically generating a link QRcode.
         """
         start_x, start_y = location
         print(f"\033[{start_y};{start_x}H", end="")
