@@ -3,6 +3,7 @@
 
 import time, keyboard, random, requests
 from threading import Thread, Lock
+from enum import Enum
 from colorama import init
 from getpass import getpass
 import qrcode
@@ -14,32 +15,28 @@ PROJECT_ID = "bulletdodginggame"
 API_KEY = "AIzaSyDzGXj5OkOMwKUM-aT_qx_wyrNbV1wyEtQ"
 
 EMPTY = '·'
-COLORS = {
-    'BLACK': '\033[0;30m',
-    'RED': '\033[0;31m',
-    'GREEN': '\033[0;32m',
-    'BROWN': '\033[0;33m',
-    'BLUE': '\033[0;34m',
-    'PURPLE': '\033[0;35m',
-    'CYAN': '\033[0;36m',
-    'LIGHT_GRAY': '\033[0;37m',
-    'DARK_GRAY': '\033[1;30m',
-    'LIGHT_RED': '\033[1;31m',
-    'LIGHT_GREEN': '\033[1;32m',
-    'YELLOW': '\033[1;33m',
-    'LIGHT_BLUE': '\033[1;34m',
-    'LIGHT_PURPLE': '\033[1;35m',
-    'LIGHT_CYAN': '\033[1;36m',
-    'RESET': '\033[0m',
-}
-COLOR_KEYS = tuple(COLORS)
 
-# Make sure colors work before using colors.
-def colorify(text: str, color: str) -> str:
-    """
-    Wraps text in ANSI color codes.
-    """
-    return COLORS[color.upper()] + text + COLORS['RESET']
+class Colors(Enum):
+    BLACK = '\033[0;30m'
+    RED = '\033[0;31m'
+    GREEN = '\033[0;32m'
+    BROWN = '\033[0;33m'
+    BLUE = '\033[0;34m'
+    PURPLE = '\033[0;35m'
+    CYAN = '\033[0;36m'
+    LIGHT_GRAY = '\033[0;37m'
+    DARK_GRAY = '\033[1;30m'
+    LIGHT_RED = '\033[1;31m'
+    LIGHT_GREEN = '\033[1;32m'
+    YELLOW = '\033[1;33m'
+    LIGHT_BLUE = '\033[1;34m'
+    LIGHT_PURPLE = '\033[1;35m'
+    LIGHT_CYAN = '\033[1;36m'
+    RESET = '\033[0m'
+
+    @staticmethod
+    def colorify(color: "Colors", text: str) -> str:
+        return color.value + text + Colors.RESET.value
 
 MOVING_RULES = {
     'w': (0, -1),
@@ -51,9 +48,9 @@ MOVING_RULES = {
     'left': (-1, 0),
     'right': (1, 0),
 }
-PLAYER_CHAR = colorify("☺", "green")
+PLAYER_CHAR = Colors.colorify(Colors.GREEN, "☺")
 
-TITLE = colorify("""
+TITLE = Colors.colorify(Colors.RED, """
                                         d8,                     d8b
    d8P                                 `8P                      88P
 d888888P                                                       d88
@@ -61,7 +58,7 @@ d888888P                                                       d88
   88P   d8b_,dP  88P'  `  88P'`?8P'?8b  88P  88P' ?8bd8P' ?88  ?88
   88b   88b     d88      d88  d88  88P d88  d88   88P88b  ,88b  88b
   `?8b  `?888P'd88'     d88' d88'  88bd88' d88'   88b`?88P'`88b  88b
-""", "red") + colorify("""
+""") + Colors.colorify(Colors.GREEN, """
                  d8b                  d8,
                  88P                 `8P    d8P
                 d88                      d888888P
@@ -71,7 +68,7 @@ d88  d8P'd8b_,dP?88  d8P' ?88d8P' `P  88P  88P   d88   88
 `?888P'  `?888P'  88b`?8888P'`?888P'd88'   `?8b  `?88P'?8b
                                                         )88
                                                        ,d8P
-                                                    `?888P'""", "green")
+                                                    `?888P'""")
 
 SUPPORT_LINK = "https://buymeacoffee.com/mamaru"
 
@@ -208,7 +205,7 @@ class Game:
         self.begin_threads_and_wait()
 
         print("\033[H", end="", flush=True)
-        getpass(f"Game over! Your final time was {self.time_elapsed:.2f} seconds! " + colorify("Press enter to continue...", "green"))
+        getpass(f"Game over! Your final time was {self.time_elapsed:.2f} seconds! " + Colors.colorify(Colors.GREEN, "Press enter to continue..."))
 
         while True:
             print("\033[H\033[2J", end="", flush=True)
@@ -229,9 +226,9 @@ class Game:
             else: # Most likely 403 = Forbidden
                 print("Error submitting, try again later..")
 
-        self.render_qrcode(self.m, (35, 3), colorify("Enjoying the game? Support me here:", "cyan"))
+        self.render_qrcode(self.m, (35, 3), Colors.colorify(Colors.CYAN, "Enjoying the game? Support me here:"))
         
-        getpass(colorify("Want to play again? Press enter...", "green"))
+        getpass(Colors.colorify(Colors.GREEN, "Want to play again? Press enter..."))
 
     def render_qrcode(self, matrix: list[list[bool]], location: tuple[int, int], message: str) -> None:
         """
@@ -302,15 +299,15 @@ class Game:
             y = self.field_size[1]
             dx, dy = random.choice([(0, -1), (1, -1), (-1, -1)])
 
-        color = random.choice(COLOR_KEYS)
+        color = random.choice(Colors._member_names_)
         while color in ['GREEN', 'RESET', 'LIGHT_GREEN', 'BLACK', 'LIGHT_GRAY', 'DARK_GRAY']:
-            color = random.choice(COLOR_KEYS)
+            color = random.choice(Colors._member_names_)
         
         self.positions['projectiles'].append({
             'head': (x, y),
             'dir': (dx, dy),
             'length': 3,
-            'char': colorify("X", color)
+            'char': Colors.colorify(Colors[color], "X")
         })
 
     def update_projectiles(self) -> None:
