@@ -76,7 +76,20 @@ d88  d8P'd8b_,dP?88  d8P' ?88d8P' `P  88P  88P   d88   88
 SUPPORT_LINK = "https://buymeacoffee.com/mamaru"
 
 class Game:
-    ID_TOKEN, LOCAL_ID = None, None
+    ID_TOKEN: str | None = None
+    LOCAL_ID: str | None = None
+
+    field_size: tuple[int, int]
+    field: list[list[str]]
+    positions: dict[str, tuple[int,int] | list[dict]]
+    prev_projectile_cells: set[tuple[int,int]]
+    projectile_cells: set[tuple[int,int]]
+    game_over: bool
+    delay: float
+    time_elapsed: float
+    leaderboard: list[dict]
+    movement_toggle: dict[str, bool]
+    m: list[list[bool]]
 
     def __init__(self):
         if Game.ID_TOKEN is None or Game.LOCAL_ID is None:
@@ -110,7 +123,7 @@ class Game:
         self.m = qr.get_matrix()
 
 
-    def begin_threads_and_wait(self):
+    def begin_threads_and_wait(self) -> None:
         self.threads = [
             Thread(target=self.player, name="Player"),
             Thread(target=self.projectile, name="Projectile"),
@@ -123,7 +136,7 @@ class Game:
         for i in self.threads:
             i.join()
 
-    def anonymous_sign_in(self):
+    def anonymous_sign_in(self) -> tuple[str, str]:
         url = f"https://identitytoolkit.googleapis.com/v1/accounts:signUp?key={API_KEY}"
         resp = requests.post(url, json={"returnSecureToken": True})
         data = resp.json()
@@ -135,7 +148,7 @@ class Game:
         local_id = data["localId"]
         return id_token, local_id
     
-    def submit_score(self, username: str, score: float):
+    def submit_score(self, username: str, score: float) -> tuple[int, str]:
         """
         Submits score to firestore.
         """
@@ -159,7 +172,7 @@ class Game:
         r = requests.patch(url, json=payload, headers=headers)
         return r.status_code, r.text
 
-    def fetch_all_scores(self):
+    def fetch_all_scores(self) -> list:
         """
         Fetches all firestore items.
         """
@@ -189,7 +202,7 @@ class Game:
 
         return results
     
-    def play(self):
+    def play(self) -> None:
         print("\033[H\033[2J", end="", flush=True)
         
         self.begin_threads_and_wait()
@@ -216,7 +229,7 @@ class Game:
         
         getpass(colorify("Want to play again? Press enter...", "green"))
 
-    def render_qrcode(self, matrix: list[list[bool]], location: tuple[int, int], message: str):
+    def render_qrcode(self, matrix: list[list[bool]], location: tuple[int, int], message: str) -> None:
         """
         Renders a QRcode from a matrix and prints it onto a screen at a specific location.
         This also includes a message above the code.
@@ -239,7 +252,7 @@ class Game:
 
             print(row)
 
-    def render_field(self, seperator: str=" "):
+    def render_field(self, seperator: str=" ") -> None:
         """
         Renders the field from the field variable. This also prints data such as delay and time elapsed.
         Also renders the leaderboard.
@@ -259,7 +272,7 @@ class Game:
 
             time.sleep(1 / 30)
 
-    def spawn_projectile(self):
+    def spawn_projectile(self) -> None:
         """
         Spawns a projectile randomly. Decides which border side (top, bottom, etc.) then chooses direction.
         """
@@ -296,7 +309,7 @@ class Game:
             'char': colorify("X", color)
         })
 
-    def update_projectiles(self):
+    def update_projectiles(self) -> None:
         self.projectile_cells.clear()
         new_projectiles = []
 
@@ -323,7 +336,7 @@ class Game:
         self.positions['projectiles'] = new_projectiles
 
     # Main logic
-    def player(self):
+    def player(self) -> None:
         """
         Controls player movement, updates time elapsed, and controls if the Game is over or not.
         """
@@ -358,7 +371,7 @@ class Game:
             time.sleep(0.01)
             self.time_elapsed += 0.01
 
-    def projectile(self):
+    def projectile(self) -> None:
         """
         Projectile function that spawns it using the other helper functions.
         Also modifies previous and current projectile cells which prevents ghosting.
@@ -377,7 +390,7 @@ class Game:
 
             time.sleep(self.delay)
 
-    def delayer(self):
+    def delayer(self) -> None:
         """
         Modifies the delay/speed of projectiles and projectiles' spawn rate.
         """
@@ -396,7 +409,7 @@ print("Please maximize your terminal")
 getpass("Press CTRL and + 5 times then enter...")
 
 # Constant loop to reset and play again.
-def main():
+def main() -> None:
     while True:
         g = Game()
         g.play()
