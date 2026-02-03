@@ -24,9 +24,7 @@ Bullets fly, flying faster, and faster you must become too.
 ## Install
 1. git clone https://github.com/Id1otic/TerminalVelocity.git
 2. cd TerminalVelocity
-3. pip install -r requirements.txt
-**OR**
-3. pip install -e "directory to game folder"
+3. pip install -r requirements.txt **OR** pip install -e "directory to game folder"
 
 ## Run
 - python main.py
