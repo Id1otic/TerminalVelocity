@@ -1,4 +1,4 @@
-keyboard
-requests
-colorama
-qrcode
+keyboard==0.13.5
+requests==2.32.5
+colorama==0.4.6
+qrcode==8.2
