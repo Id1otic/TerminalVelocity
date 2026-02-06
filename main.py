@@ -71,6 +71,28 @@ d88  d8P'd8b_,dP?88  d8P' ?88d8P' `P  88P  88P   d88   88
                                                     `?888P'""")
 
 SUPPORT_LINK = "https://buymeacoffee.com/mamaru"
+def render_qrcode(matrix: list[list[bool]], location: tuple[int, int], message: str) -> None:
+        """
+        Renders a QRcode from a matrix and prints it onto a screen at a specific location.
+        This also includes a message above the code. For dynamically generating a link QRcode.
+        """
+        start_x, start_y = location
+        print(f"\033[{start_y};{start_x}H", end="")
+        print(message)
+        print(f"\033[{start_y + 1};{start_x}H", end="") # This is extra and I added it to make sure it is accessable from anywhere.
+        print(SUPPORT_LINK)
+
+        for row_idx in range(0, len(matrix), 2):
+            row = ""
+            print(f"\033[{start_y + row_idx // 2 + 2};{start_x + 2}H", end="")
+
+            for col_idx in range(len(matrix[row_idx])):
+                top = matrix[row_idx][col_idx]
+                bottom = matrix[row_idx + 1][col_idx] if row_idx + 1 < len(matrix) else False
+
+                row += "█" if top and bottom else "▀" if top else "▄" if bottom else " "
+
+            print(row)
 
 class Game:
     ID_TOKEN: str | None = None
@@ -226,32 +248,9 @@ class Game:
             else: # Most likely 403 = Forbidden
                 print("Error submitting, try again later..")
 
-        self.render_qrcode(self.m, (35, 3), Colors.colorify(Colors.CYAN, "Enjoying the game? Support me here:"))
+        render_qrcode(self.m, (35, 3), Colors.colorify(Colors.CYAN, "Enjoying the game? Support me here:"))
         
         getpass(Colors.colorify(Colors.GREEN, "Want to play again? Press enter..."))
-
-    def render_qrcode(self, matrix: list[list[bool]], location: tuple[int, int], message: str) -> None:
-        """
-        Renders a QRcode from a matrix and prints it onto a screen at a specific location.
-        This also includes a message above the code. For dynamically generating a link QRcode.
-        """
-        start_x, start_y = location
-        print(f"\033[{start_y};{start_x}H", end="")
-        print(message)
-        print(f"\033[{start_y + 1};{start_x}H", end="") # This is extra and I added it to make sure it is accessable from anywhere.
-        print(SUPPORT_LINK)
-
-        for row_idx in range(0, len(matrix), 2):
-            row = ""
-            print(f"\033[{start_y + row_idx // 2 + 2};{start_x + 2}H", end="")
-
-            for col_idx in range(len(matrix[row_idx])):
-                top = matrix[row_idx][col_idx]
-                bottom = matrix[row_idx + 1][col_idx] if row_idx + 1 < len(matrix) else False
-
-                row += "█" if top and bottom else "▀" if top else "▄" if bottom else " "
-
-            print(row)
 
     def render_field(self, seperator: str=" ") -> None:
         """
